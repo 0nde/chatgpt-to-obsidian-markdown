@@ -12,8 +12,18 @@ async function run() {
 
   const data = await fs.readFile(filePath, "utf8");
   const json = JSON.parse(data);
-  const sourceDir = path.dirname(filePath);
-  await chatgptToMarkdown(json, sourceDir);
+
+  // Base directory inside the Obsidian vault
+  const baseDir = "E:\\DATA\\MES DOCS\\DOCUMENTS\\Obsidian Vault\\Le Jardin Digital de Fabien\\000 - Workspace\\02 - ChatGPT Historique";
+
+  // Sub-folder named after today's date in YYYYMMDD format
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const destDir = path.join(baseDir, dateStr);
+
+  // Make sure the destination directory exists
+  await fs.mkdir(destDir, { recursive: true });
+
+  await chatgptToMarkdown(json, destDir);
 }
 
 run();
