@@ -25,20 +25,14 @@ function wrapHtmlTagsInBackticks(text) {
 }
 
 /**
- * Converts plain URLs in a string to Obsidian-style wiki links [[url]].
+ * Converts plain URLs in a string to standard Markdown links [url](url).
  * @param {string} text - The text to transform.
- * @returns {string}
+ * @returns {string} - The text with URLs converted to Markdown links.
  */
 function wrapLinksInMarkdown(text) {
   return text.replace(/https?:\/\/\S+/g, (url) => `[${url}](${url})`);
 }
 
-function fixEmptyMarkdownLinks(text) {
-  return text.replace(/\[\]\((https?:\/\/[^)]+)\)/g, (_, url) => {
-    const fileName = url.split("/").pop();
-    return `[${fileName}](${url})`;
-  });
-}
 
 /**
  * Indents a string by 4 spaces.
@@ -55,6 +49,11 @@ function indent(str) {
     .join("");
 }
 
+/**
+ * Converts a string to a markdown blockquote by prefixing each line with ">"
+ * @param {string} str - The string to convert to a blockquote
+ * @returns {string} - The blockquoted string
+ */
 function blockquote(str) {
   return str
     .split("\n")
@@ -113,32 +112,22 @@ function nodeToMarkdown(node, { skipHeader = false } = {}) {
         body = String(content);
     }
         const meta = node.message.metadata || {};
-    // Obsidian callout for reasoning in progress
-    if (meta.reasoning_status === "is_reasoning") {
-      // Wrap later, after body computed; flag now
-      meta.__wrap_callout = true;
-    }
+    
     // Replace inline citation placeholders first
     const citationMap = buildCitationMap(meta);
     body = replaceCitationPlaceholders(body, citationMap);
-
-    // Convert raw URLs first
+    
+    // Convert raw URLs
     body = wrapLinksInMarkdown(body);
-
+    
+    // Add citations and search results
     const citations = extractCitations(meta);
     const results = extractSearchResults(meta);
     if (citations) body += citations;
     if (results) body += results;
-
-    // Apply callout wrapping if flagged
-    if (meta.__wrap_callout) {
-      const quoted = body
-        .split("\n")
-        .filter((l) => l.trim())
-        .map((l) => `> ${l}`)
-        .join("\n");
-      body = `> [!info]- Reasoning\n${quoted}`;
-    }
+    
+    // No special processing for reasoning status in nodeToMarkdown
+    // All callout formatting will be handled in the main chatgptToMarkdown function
 
     if (/"search_query"\s*:/s.test(body)) return "";
     if (/"open"\s*:/s.test(body) && /"url"/s.test(body)) return "";
@@ -198,46 +187,131 @@ function getOrderedNodeIds(conversation) {
   return ordered;
 }
 
+
+/**
+ * Returns a safe title for a URL, using the provided title or extracting from the URL.
+ * @param {string} url - The URL to extract a title from if no title is provided.
+ * @param {string} title - Optional title to use.
+ * @returns {string} - A safe title.
+ */
 function safeTitle(url, title) {
   const t = (title || "").trim();
   return t ? t : url.split("/").pop();
 }
 
+/**
+ * Extracts search results from message metadata and formats them as markdown links.
+ * @param {Object} metadata - The message metadata containing search results.
+ * @returns {string} - Formatted search results as markdown links.
+ */
 function extractSearchResults(metadata = {}) {
   if (!Array.isArray(metadata.search_result_groups)) return "";
+  
   const links = [];
   for (const group of metadata.search_result_groups) {
     if (!Array.isArray(group.entries)) continue;
-    for (const e of group.entries) {
-      if (e.url) links.push(`[${safeTitle(e.url,e.title)}](${e.url})`);
-    }
-  }
-  return links.length ? links.join("\n") + "\n\n" : "";
-}
-
-function buildCitationMap(metadata = {}) {
-  const map = {};
-  if (Array.isArray(metadata.citations)) {
-    for (const c of metadata.citations) {
-      const key = c.ref_id || c.source_id || c.id;
-      if (key && c.url) {
-        map[key] = `[${safeTitle(c.url,c.title)}](${c.url})`;
+    
+    for (const entry of group.entries) {
+      if (entry.url) {
+        links.push(`[${safeTitle(entry.url, entry.title)}](${entry.url})`);
       }
     }
   }
+  
+  return links.length ? links.join("\n") + "\n\n" : "";
+}
+
+/**
+ * Builds a map of citation keys to formatted markdown links.
+ * @param {Object} metadata - The message metadata containing citations.
+ * @returns {Object} - Map of citation reference IDs to markdown links.
+ */
+function buildCitationMap(metadata = {}) {
+  const map = {};
+  
+  if (Array.isArray(metadata.citations)) {
+    for (const citation of metadata.citations) {
+      const key = citation.ref_id || citation.source_id || citation.id;
+      
+      if (key && citation.url) {
+        map[key] = `[${safeTitle(citation.url, citation.title)}](${citation.url})`;
+      }
+    }
+  }
+  
   return map;
 }
 
+/**
+ * Replaces citation placeholders in text with the corresponding markdown links.
+ * @param {string} text - The text containing citation placeholders.
+ * @param {Object} citationMap - Map of citation IDs to markdown links.
+ * @returns {string} - Text with citation placeholders replaced by links.
+ */
 function replaceCitationPlaceholders(text, citationMap) {
   if (!text) return text;
-  return text.replace(/[\uE000-\uF8FF]cite[\uE000-\uF8FF](.*?)[\uE000-\uF8FF]/g, (_, id) => citationMap[id] || "");
+  
+  return text.replace(/[\uE000-\uF8FF]cite[\uE000-\uF8FF](.*?)[\uE000-\uF8FF]/g, 
+    (_, id) => citationMap[id] || ""
+  );
 }
 
+/**
+ * Extracts citation information from message metadata and formats it as markdown blockquotes.
+ * @param {Object} metadata - The message metadata containing citations.
+ * @returns {string} - Formatted citations as markdown blockquotes.
+ */
 function extractCitations(metadata = {}) {
-  if (!Array.isArray(metadata.citations) || !metadata.citations.length) return "";
-  return metadata.citations
-    .map((c) => `[${safeTitle(c.url,c.title)}](${c.url})`)
-    .join("\n") + "\n\n";
+  if (!Array.isArray(metadata.citations)) return "";
+  
+  return "\n" + metadata.citations.map(citation => {
+    return `> [${citation.name}](${citation.url})\n\n> ${citation.detail}\n`;
+  }).join("\n");
+}
+
+/**
+ * Determines if a message from the conversation should be included in the markdown output.
+ * @param {Object} node - The conversation node to check.
+ * @returns {boolean} - Whether the message should be included.
+ */
+function shouldIncludeMessage(node) {
+  if (!node || !node.message) return false;
+  
+  const meta = node.message.metadata || {};
+  
+  // Filter out hidden or completed reasoning messages
+  if (meta.is_visually_hidden_from_conversation) return false;
+  if (meta.reasoning_status === "reasoning_ended") return false;
+  
+  // Skip empty system messages
+  if (node.message.author.role === "system" && !node.message.content?.parts?.join("").trim()) return false;
+  
+  // Filter out assistant internal tool commands
+  if (node.message.author.role === "assistant") {
+    const content = node.message.content;
+    const suspectText = (() => {
+      if (!content) return "";
+      if (content.content_type === "code") return content.text || "";
+      if (Array.isArray(content.parts)) return content.parts.join("\n");
+      return "";
+    })().trim();
+    
+    try {
+      const obj = JSON.parse(suspectText);
+      if (obj && typeof obj === "object") {
+        const keys = Object.keys(obj);
+        const banned = ["open", "search_query", "find", "click", "browser", "code_interpreter"];
+        if (keys.some(k => banned.includes(k))) return false;
+      }
+    } catch (_) {
+      /* not JSON - that's fine */
+    }
+    
+    // Additional check for search query commands
+    if (/"search_query"\s*:/s.test(suspectText)) return false;
+  }
+  
+  return true;
 }
 
 async function chatgptToMarkdown(json, sourceDir, { dateFormat } = { dateFormat: formatDate }) {
@@ -281,37 +355,8 @@ async function chatgptToMarkdown(json, sourceDir, { dateFormat } = { dateFormat:
 
     // Traverse nodes in a deterministic order
     const orderedMessages = getOrderedNodeIds(conversation)
-      .map((id) => conversation.mapping[id])
-      .filter((n) => {
-        if (!n || !n.message) return false;
-        const meta = n.message.metadata || {};
-        if (meta.is_visually_hidden_from_conversation) return false;
-        if (meta.reasoning_status === "reasoning_ended") return false;
-        // Skip empty system messages
-        if (n.message.author.role === "system" && !n.message.content?.parts?.join("").trim()) return false;
-        // Generic filter for assistant internal tool commands
-        if (n.message.author.role === "assistant") {
-          const c = n.message.content;
-          const suspectText = (() => {
-            if (!c) return "";
-            if (c.content_type === "code") return c.text || "";
-            if (Array.isArray(c.parts)) return c.parts.join("\n");
-            return "";
-          })().trim();
-          try {
-            const obj = JSON.parse(suspectText);
-            if (obj && typeof obj === "object") {
-              const keys = Object.keys(obj);
-              const banned = ["open", "search_query", "find", "click", "browser", "code_interpreter"];
-              if (keys.some((k) => banned.includes(k))) return false;
-            }
-          } catch (_) {
-            /* not json */
-          }
-          if (/"search_query"\s*:/s.test(suspectText)) return false;
-        }
-        return true;
-      });
+      .map(id => conversation.mapping[id])
+      .filter(node => shouldIncludeMessage(node));
 
     let inCallout = false;
     const parts = [];
@@ -319,30 +364,76 @@ async function chatgptToMarkdown(json, sourceDir, { dateFormat } = { dateFormat:
       const meta = n.message.metadata || {};
       const isReason = meta.reasoning_status === "is_reasoning";
       if (isReason) {
-        // Temporarily disable existing callout wrapping to avoid duplicates
-        delete meta.__wrap_callout;
-        const rawLines = nodeToMarkdown(n, { skipHeader: true })
-          .split("\n")
-          .map((l)=>l.replace(/^>+\s*/, ""))
-          .filter((l) => l.trim());
+        // Get raw markdown content without any callout formatting
+        let rawContent = nodeToMarkdown(n, { skipHeader: true });
+        
+        // Ensure we have a parent callout wrapper
         if (!inCallout) {
           parts.push("> [!info]- Reasoning\n");
           inCallout = true;
         } else {
-          // Separate sibling child callouts with a single chevron line
+          // Separate sibling callouts
           parts.push("> \n");
         }
-        if (rawLines.length) {
-          const [first, ...rest] = rawLines;
-          const firstClean = first.replace(/^\[!info\]-?\s*/i, "").trim();
-          parts.push(`>> [!example]- ${firstClean}\n`);
-          rest.forEach((l) => parts.push(`>> ${l}\n`));
+        
+        // Split content into lines for analysis
+        const contentLines = rawContent.trim().split("\n");
+        
+        // Check if this is a link-only section
+        // First filter out any non-candidate lines (code, headings, etc.)
+        const candidateLines = contentLines.filter(line => {
+          const trimmed = line.trim();
+          if (!trimmed) return false;
+          if (trimmed.startsWith("```")) return false;
+          if (trimmed.startsWith("#")) return false;
+          if (/^\[!\w+\]/i.test(trimmed)) return false;
+          return true;
+        });
+        
+        // Test if all candidate lines are markdown links
+        const linkRegex = /^\[[^\]]+\]\(https?:\/\/[^)]+\)/;
+        const hasLinks = candidateLines.some(line => linkRegex.test(line.trim()));
+        const onlyLinks = hasLinks && candidateLines.every(line => {
+          const trimmed = line.trim();
+          return !trimmed || linkRegex.test(trimmed);
+        });
+        
+        // Initialize variables for content processing
+        let calloutTitle = "Reasoning";
+        let outputLines = [...contentLines];
+        
+        // If not link-only, check for heading as title
+        if (!onlyLinks) {
+          // Look for the first non-empty line
+          for (let i = 0; i < contentLines.length; i++) {
+            const line = contentLines[i].trim();
+            if (!line) continue;
+            
+            if (line.startsWith("#####")) {
+              // Extract heading text as title
+              calloutTitle = line.replace(/^#+\s*/, "");
+              // Remove this line from output
+              outputLines = contentLines.slice(0, i).concat(contentLines.slice(i + 1));
+            }
+            break;
+          }
         }
+        
+        // Add the appropriate nested callout header
+        if (onlyLinks) {
+          parts.push(">> [!quote]- Links\n");
+        } else {
+          parts.push(`>> [!example]- ${calloutTitle}\n`);
+        }
+        
+        // Add all content lines with proper nesting
+        outputLines.forEach(line => {
+          const trimmed = line.trim();
+          // Always use >> for nested content, even for empty lines
+          parts.push(trimmed ? `>> ${trimmed}\n` : ">>\n");
+        });
+        
         continue;
-      }
-      if (inCallout) {
-        parts.push("\n");
-        inCallout = false;
       }
       parts.push(nodeToMarkdown(n));
     }
@@ -350,7 +441,7 @@ async function chatgptToMarkdown(json, sourceDir, { dateFormat } = { dateFormat:
     const messages = parts.join("");
     const markdownContent = `${metadata}\n\n${title}\n\n${messages}`;
     await fs.writeFile(filePath, markdownContent, "utf8");
-    await fs.utimes(filePath, conversation.update_time, conversation.create_time);
+    await fs.utimes(filePath, conversation.create_time, conversation.update_time);
   }
 }
 

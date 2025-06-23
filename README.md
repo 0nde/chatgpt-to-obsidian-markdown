@@ -1,112 +1,130 @@
-# ChatGPT to Markdown
+# ChatGPT to Obsidian Markdown
 
-Convert ChatGPT conversation JSON files to Markdown format with ease.
+> Convert ChatGPT conversation JSON exports to Obsidian-optimized Markdown with intelligent callouts.
 
-[![npm version](https://badge.fury.io/js/chatgpt-to-markdown.svg)](https://badge.fury.io/js/chatgpt-to-markdown)
+## 🌟 Features
 
-## Usage
+- **Obsidian-Optimized Formatting** - Create markdown files that leverage Obsidian's unique features
+- **Smart Callouts** - Automatically convert ChatGPT's reasoning sections into Obsidian callouts
+- **Dynamic Titles** - Extract headings from reasoning blocks to create meaningful callout titles
+- **Link-Aware Formatting** - Special handling for link-only sections
+- **Metadata Preservation** - Front matter includes creation date, update time, and model information
+- **Original File Timestamps** - Preserves the original conversation creation and update times
 
-Go to [chat.openai.com](https://chat.openai.com/) > Settings > Data controls > Export data and export your data.
+## 📋 Usage
 
-Unzip the file you're mailed and run:
+### Getting Your ChatGPT Data
 
-```bash
-npx chatgpt-to-markdown path/to/your/conversations.json
-```
+1. Visit [chat.openai.com](https://chat.openai.com/)
+2. Go to **Settings** > **Data controls** > **Export data**
+3. Request your data export (OpenAI will email you a download link)
+4. Download and unzip the file to access your `conversations.json`
 
-**NO NEED TO INSTALL** - `npx` will automatically install the package if it's not already installed.
+### Converting to Markdown
 
-This will generate one Markdown file for each chat same directory as the conversations JSON file. The file name will be the chat title, with invalid filename characters replaced by spaces.
-
-## Example
-
-Here's an example of the Markdown output for a chat with the title `Medium-Style Table CSS`:
-
-````markdown
-# Medium-Style Table CSS
-
-- Created: 26/9/2023, 10:10:54 am
-- Updated: 26/9/2023, 10:11:19 am
-
-## user
-
-    Generate CSS for a Medium-style table
-
-## assistant
-
-Creating a Medium-style table requires a clean and minimalist design. Here's a simple CSS snippet to help you create a table that resembles the style seen on Medium. This code assumes that you have a basic HTML table structure in place.
-
-```css
-/* Resetting some table styles */
-table {
-    border-collapse: collapse;
-    width: 100%;
-    margin-bottom: 20px;
-}
-...
-```
-````
-
-## Installation
+Run this command in your terminal:
 
 ```bash
-npm install chatgpt-to-markdown
+npx chatgpt-to-markdown path/to/conversations.json [output-directory]
 ```
 
-## API
+- **No installation required** - `npx` handles everything automatically
+- If no output directory is specified, files will be saved to `./chatgpt-exports/YYYYMMDD/`
+- Each conversation will be saved as a separate markdown file
 
-You can also use `chatgpt-to-markdown` programmatically in your JavaScript or TypeScript projects.
+### Command Line Options
+
+```
+Usage: chatgpt-to-markdown <input-file.json> [output-directory]
+
+Arguments:
+  input-file.json    Path to the ChatGPT conversation JSON file
+  output-directory   Optional: Directory to save markdown files to
+```
+
+## ✨ Callout Features
+
+This fork adds intelligent Obsidian callout handling:
+
+### Reasoning Section Callouts
+
+**Standard reasoning blocks** become example callouts with dynamic titles:
+
+```markdown
+[!example]- Reasoning
+> Your reasoning content here with proper paragraph formatting
+> 
+> Multiple paragraphs work correctly
+```
+
+### Dynamic Titles from Headings
+
+If a reasoning section starts with a heading (e.g., `##### Analysis`), it becomes:
+
+```markdown
+[!example]- Analysis
+> Your reasoning content here (without the heading)
+```
+
+### Link-Only Sections
+
+Reasoning blocks containing only links get a special format:
+
+```markdown
+[!quote]- Links
+> [Link Title 1](https://example.com/link1)
+> [Link Title 2](https://example.com/link2)
+```
+
+## 📂 Project Structure
+
+- **`index.js`** - Core conversion logic and markdown formatting
+- **`cli.js`** - Command line interface and file handling
+- **`index.test.js`** - Test suite for all functionality
+
+## 🧪 Development
+
+```bash
+# Clone the repository
+git clone https://github.com/your-username/chatgpt-to-markdown.git
+cd chatgpt-to-markdown
+
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+```
+
+## 📚 API
+
+You can also use the converter programmatically:
 
 ```javascript
-import chatgptToMarkdown from "chatgpt-to-markdown";
+import chatgptToMarkdown from "./index.js";
 
-const json = [
-  // ... your ChatGPT conversation data
-];
+// Your ChatGPT conversation data
+const json = [ /* conversation data */ ];
 
-const sourceDir = "./output";
+// Output directory
+const outputDir = "./obsidian-notes";
+
+// Optional configuration
 const options = {
-  dateFormat: (d) => d.toLocaleString(),
+  dateFormat: (date) => date.toLocaleString(),
 };
-chatgptToMarkdown(json, sourceDir);
+
+// Convert and save files
+await chatgptToMarkdown(json, outputDir, options);
 ```
 
-## Options
+## 🙏 Acknowledgments
 
-- `dateFormat`: A function that takes a `Date` object and returns a string. Defaults to a string format like "1 Jan 2023 11:30 PM".
+This project is a fork of the original [chatgpt-to-markdown](https://github.com/enjoythecode/chatgpt-to-markdown) by [@enjoythecode](https://github.com/enjoythecode), enhanced with specific Obsidian features and improved callout handling.
 
-## Contributing
+## 📄 License
 
-- Create a new branch for your feature or bugfix.
-- Make your changes.
-
-# Contributing
-
-- Fork the repository on GitHub and clone the fork to your machine.
-- Run `npm install` to install dependencies
-- Edit [`index.js`](index.js) or [`cli.js`](cli.js), documenting your changes
-- Push your changes back to your fork on GitHub and submit a pull request to the main repository.
-
-# Release
-
-```shell
-npm version minor
-npm publish
-git push --follow-tags
-```
-
-## Release notes
-
-- 1.6.0: 18 Jul 2025. Handle `thoughts`, `reasoning_recap`, `sonic_webpage`. Include projects
-- 1.5.5: 02 Nov 2024. Add conversation link. Use conversation ID as fallback title if title is empty.
-- 1.5.4: 02 Nov 2024. Skip `user_editable_context` to avoid polluting Markdown with custom instructions
-- 1.5.3: 05 Aug 2024. Show text from multimodal prompts
-- 1.5.2: 05 Aug 2024. Show tether_browsing_display summary
-- 1.5.1: 22 Mar 2024. Handle unicode filenames
-- 1.5.0: 28 Nov 2023. Handle `tether_browsing_display`, `tether_quote` and `system_error`
-- 1.4.0: 29 Oct 2023. Handle multi-modal text from Dall-E
-- 1.3.0: 29 Sep 2023. Set create and update dates from chat
-- 1.2.0: 28 Sep 2023. Added test cases
+MIT
 - 1.1.0: 26 Sep 2023. Add date format option
 - 1.0.0: 26 Sep 2023. Initial release
 

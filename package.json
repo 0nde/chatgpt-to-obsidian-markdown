@@ -1,7 +1,7 @@
 {
-  "name": "chatgpt-to-markdown",
-  "version": "1.6.0",
-  "description": "Convert ChatGPT exported conversations.json to Markdown",
+  "name": "chatgpt-to-obsidian-markdown",
+  "version": "1.7.0",
+  "description": "Convert ChatGPT conversations to Obsidian-optimized Markdown with intelligent callouts",
   "main": "index.js",
   "type": "module",
   "bin": {
@@ -14,9 +14,26 @@
   "keywords": [
     "chatgpt",
     "markdown",
-    "converter"
+    "obsidian",
+    "converter",
+    "callouts",
+    "reasoning"
   ],
-  "author": "S Anand <root.node@gmail.com>",
+  "author": {
+    "name": "0nde (fork)",
+    "url": "https://github.com/0nde"
+  },
+  "contributors": [
+    {
+      "name": "S Anand",
+      "email": "root.node@gmail.com",
+      "url": "https://github.com/sanand0"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0nde/chatgpt-to-obsidian-markdown"
+  },
   "license": "MIT",
   "prettier": {
     "printWidth": 120

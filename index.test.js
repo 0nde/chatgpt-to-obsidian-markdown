@@ -399,6 +399,136 @@ describe("chatgptToMarkdown", () => {
     expect(fileContent).toContain("##### Sum");
     expect(fileContent).toContain("Detail");
   });
+  
+  it("should format standard reasoning blocks as example callouts", async () => {
+    const json = [
+      {
+        title: "Test Reasoning Callouts",
+        create_time: 1630454400,
+        update_time: 1630458000,
+        mapping: {
+          0: {
+            message: {
+              author: { role: "assistant" },
+              content: { content_type: "text", parts: ["Normal response text"] },
+              metadata: { is_reasoning: true }
+            },
+          },
+        },
+      },
+    ];
+    
+    await chatgptToMarkdown(json, tempDir);
+    const fileContent = await fs.readFile(path.join(tempDir, "Test Reasoning Callouts.md"), "utf8");
+    
+    expect(fileContent).toContain("[!example]- Reasoning");
+    expect(fileContent).toContain("> Normal response text");
+  });
+  
+  it("should extract heading from reasoning blocks for callout title", async () => {
+    const json = [
+      {
+        title: "Test Dynamic Titles",
+        create_time: 1630454400,
+        update_time: 1630458000,
+        mapping: {
+          0: {
+            message: {
+              author: { role: "assistant" },
+              content: { content_type: "text", parts: ["##### Analysis\n\nHere is my detailed analysis."] },
+              metadata: { is_reasoning: true }
+            },
+          },
+        },
+      },
+    ];
+    
+    await chatgptToMarkdown(json, tempDir);
+    const fileContent = await fs.readFile(path.join(tempDir, "Test Dynamic Titles.md"), "utf8");
+    
+    expect(fileContent).toContain("[!example]- Analysis");
+    expect(fileContent).toContain("> Here is my detailed analysis.");
+    expect(fileContent).not.toContain("> ##### Analysis");
+  });
+  
+  it("should format link-only reasoning sections as quote callouts", async () => {
+    const json = [
+      {
+        title: "Test Link Callouts",
+        create_time: 1630454400,
+        update_time: 1630458000,
+        mapping: {
+          0: {
+            message: {
+              author: { role: "assistant" },
+              content: { content_type: "text", parts: ["[Link One](https://example.com/1)\n[Link Two](https://example.com/2)"] },
+              metadata: { is_reasoning: true }
+            },
+          },
+        },
+      },
+    ];
+    
+    await chatgptToMarkdown(json, tempDir);
+    const fileContent = await fs.readFile(path.join(tempDir, "Test Link Callouts.md"), "utf8");
+    
+    expect(fileContent).toContain("[!quote]- Links");
+    expect(fileContent).toContain("> [Link One](https://example.com/1)");
+    expect(fileContent).toContain("> [Link Two](https://example.com/2)");
+  });
+  
+  it("should group consecutive reasoning messages into a single callout", async () => {
+    const json = [
+      {
+        title: "Test Grouped Reasoning",
+        create_time: 1630454400,
+        update_time: 1630458000,
+        mapping: {
+          0: {
+            message: {
+              author: { role: "assistant" },
+              content: { content_type: "text", parts: ["First reasoning part"] },
+              metadata: { is_reasoning: true },
+              id: "msg1"
+            },
+            parent: null,
+          },
+          1: {
+            message: {
+              author: { role: "assistant" },
+              content: { content_type: "text", parts: ["Second reasoning part"] },
+              metadata: { is_reasoning: true },
+              id: "msg2"
+            },
+            parent: "msg1",
+          },
+          2: {
+            message: {
+              author: { role: "user" },
+              content: { content_type: "text", parts: ["User response"] },
+              id: "msg3"
+            },
+            parent: "msg2",
+          },
+        },
+      },
+    ];
+    
+    await chatgptToMarkdown(json, tempDir);
+    const fileContent = await fs.readFile(path.join(tempDir, "Test Grouped Reasoning.md"), "utf8");
+    
+    // We should only have one callout header for both reasoning messages
+    const calloutCount = (fileContent.match(/\[!example\]- Reasoning/g) || []).length;
+    expect(calloutCount).toBe(1);
+    
+    // Both reasoning parts should be in the same callout
+    expect(fileContent).toContain("> First reasoning part");
+    expect(fileContent).toContain("> Second reasoning part");
+    
+    // User message should be outside the callout
+    expect(fileContent).toContain("## user");
+    expect(fileContent).toContain("User response");
+  });
 
   it("should handle reasoning_recap content", async () => {
     const json = [
