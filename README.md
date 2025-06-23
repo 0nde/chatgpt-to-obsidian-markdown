@@ -120,18 +120,12 @@ await chatgptToMarkdown(json, outputDir, options);
 
 ## 🙏 Acknowledgments
 
-This project is a fork of the original [chatgpt-to-markdown](https://github.com/enjoythecode/chatgpt-to-markdown) by [@enjoythecode](https://github.com/enjoythecode), enhanced with specific Obsidian features and improved callout handling.
+This project is a fork of the original [chatgpt-to-markdown](https://github.com/sanand0/chatgpt-to-markdown) by [@sanand0](https://github.com/sanand0), enhanced with specific Obsidian features and improved callout handling.
 
 ## 📄 License
-
-MIT
-- 1.1.0: 26 Sep 2023. Add date format option
-- 1.0.0: 26 Sep 2023. Initial release
-
-## License
 
 MIT
 
 ## Support
 
-If you encounter any problems or have suggestions, please [open an issue](https://github.com/sanand0/chatgpt-to-markdown/issues) or submit a pull request.
+If you encounter any problems or have suggestions, please [open an issue](https://github.com/0nde/chatgpt-to-obsidian-markdown/issues) or submit a pull request.
